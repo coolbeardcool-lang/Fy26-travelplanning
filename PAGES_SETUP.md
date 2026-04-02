@@ -7,4 +7,4 @@
 5. 儲存後等待數十秒到數分鐘。
 6. 完成後會出現公開網址，可直接分享給同事。
 
-進站頁面為 `index.html`，會載入 OpenStreetMap（Leaflet）地圖、篩選按鈕、景點卡與 Google Maps / OpenStreetMap 連結。
+目前首頁已改成 **五天圖卡看板 + OpenStreetMap 地圖 + 景點卡** 的分享版。
