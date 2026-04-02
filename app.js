@@ -1,1 +1,194 @@
-const D=window.KANSAI_DATA;const STORAGE_KEY='kansai_trip_planner_state_v3';const map=L.map('map');L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors'}).addTo(map);const typeClass={move:'type-move',hotel:'type-hotel',pikmin:'type-pikmin',anime:'type-anime',literary:'type-literary',food:'type-food'};const routeMeta={'kix->hotel_kyoto':{mode:'JR / HARUKA / 計程車',minutes:'約 95–120 分'},'hotel_kyoto->kyoto_station':{mode:'步行 / 計程車',minutes:'約 12–15 分'},'kyoto_station->kyoto_tower':{mode:'步行',minutes:'約 3–5 分'},'fushimi_inari->gokonomiya':{mode:'電車 / 計程車',minutes:'約 20–25 分'},'gokonomiya->zuishinin':{mode:'電車＋步行',minutes:'約 25–35 分'},'zuishinin->inoichi':{mode:'地下鐵＋步行',minutes:'約 25–30 分'},'inoichi->kamo_bridge':{mode:'步行',minutes:'約 8–10 分'},'kamo_bridge->kiddy_land':{mode:'步行',minutes:'約 5–8 分'},'kiddy_land->yasaka_pagoda':{mode:'步行 / 短程計程車',minutes:'約 18–25 分'},'rakusai_bamboo->rakushisha':{mode:'巴士 / 計程車',minutes:'約 20–25 分'},'rakushisha->togetsukyo':{mode:'步行',minutes:'約 15–20 分'},'togetsukyo->jingoji':{mode:'巴士 / 計程車',minutes:'約 30–40 分'},'togetsukyo->hotel_osaka':{mode:'JR / 阪急 / 計程車',minutes:'約 75–90 分'},'tsutenkaku->osaka_castle':{mode:'地下鐵＋步行',minutes:'約 25–35 分'},'osaka_castle->ytv':{mode:'步行',minutes:'約 18–25 分'},'hotel_osaka->kix':{mode:'南海 / JR 機場線',minutes:'建議預留 2.5–3 小時整體流程'}};function defaultDayState(day){return{order:[...day.order],show:{...day.defaults.show},include:{...day.defaults.include}}}function loadState(){let raw=null;try{raw=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{}const s={activeDay:raw.activeDay||D.days[0].key,days:{}};D.days.forEach(day=>{const saved=raw.days?.[day.key]||{};s.days[day.key]={order:Array.isArray(saved.order)?saved.order.filter(id=>day.spotIds.includes(id)):[...day.order],show:{...day.defaults.show,...(saved.show||{})},include:{...day.defaults.include,...(saved.include||{})}};day.spotIds.forEach(id=>{if(!s.days[day.key].order.includes(id))s.days[day.key].order.push(id)})});return s}const state=loadState();function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}const dayTabsEl=document.getElementById('dayTabs');const spotListEl=document.getElementById('spotList');const itineraryBoardEl=document.getElementById('itineraryBoard');const routeListEl=document.getElementById('routeList');const allSpotCardsEl=document.getElementById('allSpotCards');const showAllBtn=document.getElementById('showAllBtn');const includeCoreBtn=document.getElementById('includeCoreBtn');const markers={};let routeLayer=null;function getPoint(id){return D.points[id]}function googleLink(p){return'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(p.mapsQuery||p.name)}function osmLink(p){return`https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=16/${p.lat}/${p.lng}`}function pointPopup(p,num){return`<div><b>${num}. ${p.emoji} ${p.name}</b><div style="margin-top:4px;color:#6b7280">${p.area}｜${D.typeLabels[p.type]}</div><div style="margin-top:8px;line-height:1.6">${p.summary}</div><div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><a class="mini-btn" href="${googleLink(p)}" target="_blank" rel="noopener">Google Maps</a><a class="mini-btn" href="${osmLink(p)}" target="_blank" rel="noopener">OpenStreetMap</a></div></div>`}function ensureMarker(id,num){if(markers[id])return markers[id];const p=getPoint(id);const icon=L.divIcon({className:'',html:`<div class="marker-shell ${typeClass[p.type]}"><span>${p.emoji}</span><span class="marker-num">${num}</span></div>`,iconSize:[40,36],iconAnchor:[20,18]});const m=L.marker([p.lat,p.lng],{icon}).bindPopup(pointPopup(p,num));m.on('click',()=>document.getElementById('spotcard_'+id)?.scrollIntoView({behavior:'smooth',block:'center'}));markers[id]=m;return m}function activeDay(){return D.days.find(d=>d.key===state.activeDay)}function renderTabs(){dayTabsEl.innerHTML='';D.days.forEach(day=>{const b=document.createElement('button');b.className='tab-btn'+(day.key===state.activeDay?' active':'');b.textContent=day.label;b.onclick=()=>{state.activeDay=day.key;saveState();render()};dayTabsEl.appendChild(b)})}function renderSpotList(){const day=activeDay(),ds=state.days[day.key];spotListEl.innerHTML='';day.spotIds.forEach(id=>{const p=getPoint(id);const row=document.createElement('div');row.className=`spot-row ${typeClass[p.type]}`;row.innerHTML=`<div class="left"><div class="emoji-badge">${p.emoji}</div><div class="left-text"><div class="name">${p.name}</div><div class="desc">${p.area}｜${D.typeLabels[p.type]}</div></div></div><label class="checkbox-wrap"><input type="checkbox" ${ds.show[id]?'checked':''} data-kind="show" data-id="${id}"></label><label class="checkbox-wrap"><input type="checkbox" ${ds.include[id]?'checked':''} data-kind="include" data-id="${id}"></label>`;spotListEl.appendChild(row)});spotListEl.querySelectorAll('input').forEach(input=>{input.addEventListener('change',e=>{const id=e.target.dataset.id,kind=e.target.dataset.kind;ds[kind][id]=e.target.checked;saveState();renderMap();renderItinerary();renderRoutes()})})}function getIncludedSpotIds(dayKey){const day=D.days.find(d=>d.key===dayKey),ds=state.days[dayKey];return ds.order.filter(id=>day.spotIds.includes(id)&&ds.include[id])}function makePlanCard(item){const card=document.createElement('article');card.className=`plan-card ${typeClass[item.type]}${item.fixed?' locked':''}`;card.dataset.id=item.id;card.draggable=!!item.draggable;card.innerHTML=`<div class="plan-top"><div><div class="plan-no">${item.orderLabel}</div><div class="plan-title">${item.title}</div><div class="plan-sub">${item.subtitle||''}</div></div><div class="plan-emoji">${item.emoji}</div></div><div class="plan-summary">${item.summary}</div><div class="plan-actions">${(item.actions||[]).map(a=>{if(a.pointId){const p=getPoint(a.pointId);return`<a class="action-btn" href="${googleLink(p)}" target="_blank" rel="noopener">${a.label}</a>`}return`<a class="action-btn" href="${a.url}" target="_blank" rel="noopener">${a.label}</a>`}).join('')}</div>`;return card}function applyDragAndDrop(day,ds){const draggables=itineraryBoardEl.querySelectorAll('.plan-card[draggable="true"]');draggables.forEach(card=>{card.addEventListener('dragstart',()=>card.classList.add('dragging'));card.addEventListener('dragend',()=>{card.classList.remove('dragging');syncOrderFromDom(day,ds)})});itineraryBoardEl.ondragover=e=>{e.preventDefault();const dragging=itineraryBoardEl.querySelector('.dragging');if(!dragging)return;const after=[...itineraryBoardEl.querySelectorAll('.plan-card[draggable="true"]:not(.dragging)')].reduce((closest,child)=>{const box=child.getBoundingClientRect();const offset=e.clientY-box.top-box.height/2;return offset<0&&offset>closest.offset?{offset,element:child}:closest},{offset:Number.NEGATIVE_INFINITY}).element;if(after==null)itineraryBoardEl.appendChild(dragging);else itineraryBoardEl.insertBefore(dragging,after)}}function syncOrderFromDom(day,ds){const ids=[...itineraryBoardEl.querySelectorAll('.plan-card[draggable="true"]')].map(el=>el.dataset.id);const untouched=day.spotIds.filter(id=>!ids.includes(id));ds.order=[...ids,...untouched];saveState();renderRoutes();renderMap()}function renderItinerary(){const day=activeDay(),ds=state.days[day.key];itineraryBoardEl.innerHTML='';day.lockedItems.forEach((item,idx)=>itineraryBoardEl.appendChild(makePlanCard({id:item.id,draggable:false,fixed:true,orderLabel:`固定 ${idx+1}`,title:item.title,subtitle:item.subtitle,summary:item.summary,emoji:item.emoji,type:item.type,actions:item.actions||[]})));getIncludedSpotIds(day.key).forEach((id,idx)=>{const p=getPoint(id);itineraryBoardEl.appendChild(makePlanCard({id,draggable:true,fixed:false,orderLabel:`景點 ${idx+1}`,title:p.name,subtitle:`${p.area}｜建議停留：${p.stay}`,summary:p.summary,emoji:p.emoji,type:p.type,actions:[{label:'Google Maps',url:googleLink(p)},{label:'OpenStreetMap',url:osmLink(p)}]}))});applyDragAndDrop(day,ds)}function renderRoutes(){const day=activeDay();routeListEl.innerHTML='';day.lockedItems.forEach(item=>{const div=document.createElement('div');div.className='route-item';div.innerHTML=`<b>${item.title}</b><div class="muted">${item.summary}</div>`;routeListEl.appendChild(div)});const included=getIncludedSpotIds(day.key);for(let i=0;i<included.length-1;i++){const a=getPoint(included[i]),b=getPoint(included[i+1]);const meta=routeMeta[`${a.id}->${b.id}`]||routeMeta[`${b.id}->${a.id}`]||{mode:'依導航確認',minutes:'視當天交通'};const div=document.createElement('div');div.className='route-item';div.innerHTML=`<b>${a.name} → ${b.name}</b><div class="muted">${meta.mode}｜${meta.minutes}</div><div class="plan-actions"><a class="action-btn" href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(a.mapsQuery||a.name)}&destination=${encodeURIComponent(b.mapsQuery||b.name)}" target="_blank" rel="noopener">Google 路線</a></div>`;routeListEl.appendChild(div)}if(!included.length&&!day.lockedItems.length)routeListEl.innerHTML='<div class="route-item"><b>目前沒有已納入的景點</b><div class="muted">請到右側景點清單勾選「納入」。</div></div>'}function renderMap(){const day=activeDay(),ds=state.days[day.key];Object.values(markers).forEach(m=>{if(map.hasLayer(m))map.removeLayer(m)});day.spotIds.forEach((id,idx)=>{if(!ds.show[id])return;ensureMarker(id,idx+1).addTo(map)});if(routeLayer&&map.hasLayer(routeLayer))map.removeLayer(routeLayer);const coords=getIncludedSpotIds(day.key).map(id=>[getPoint(id).lat,getPoint(id).lng]);if(coords.length>=2){routeLayer=L.polyline(coords,{color:'#111827',weight:4,opacity:.8}).addTo(map)}const visible=day.spotIds.filter(id=>ds.show[id]).map(getPoint);if(visible.length){const group=L.featureGroup(visible.map((p,idx)=>ensureMarker(p.id,idx+1)));map.fitBounds(group.getBounds().pad(.18))}else map.setView(day.center,day.zoom)}function renderAllSpotCards(){allSpotCardsEl.innerHTML='';Object.values(D.points).forEach(p=>{const card=document.createElement('article');card.className=`spot-card ${typeClass[p.type]}`;card.id='spotcard_'+p.id;card.innerHTML=`<div class="spot-card-head"><div class="emoji-badge">${p.emoji}</div><div><h3>${p.name}</h3><div class="meta">${p.area}｜${D.typeLabels[p.type]}｜建議停留：${p.stay}</div></div></div><div class="summary">${p.summary}</div><div class="actions"><a class="action-btn" href="${googleLink(p)}" target="_blank" rel="noopener">Google Maps</a><a class="action-btn" href="${osmLink(p)}" target="_blank" rel="noopener">OpenStreetMap</a></div>`;allSpotCardsEl.appendChild(card)})}function render(){renderTabs();renderSpotList();renderItinerary();renderRoutes();renderMap()}showAllBtn.addEventListener('click',()=>{const day=activeDay();day.spotIds.forEach(id=>state.days[day.key].show[id]=true);saveState();renderMap();renderSpotList()});includeCoreBtn.addEventListener('click',()=>{const day=activeDay();state.days[day.key]=defaultDayState(day);saveState();render()});renderAllSpotCards();render();
+const D = window.KANSAI_DATA;
+const ROUTE_COLOR = {
+  arrival:'#64748b', day1:'#111827', day2:'#334155', transfer:'#0f172a',
+  osaka_conan:'#475569', food:'#9ca3af', return:'#94a3b8'
+};
+const byId = Object.fromEntries(D.points.map((p, i) => [p.id, { ...p, num: i + 1 }]));
+
+const map = L.map('map');
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+const markers = [];
+const lines = [];
+
+const gm = p => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.n + ' ' + p.a);
+const osm = p => 'https://www.openstreetmap.org/?mlat=' + p.lat + '&mlon=' + p.lng + '#map=16/' + p.lat + '/' + p.lng;
+const routeDir = r => {
+  const a = byId[r.f], b = byId[r.t];
+  return 'https://www.google.com/maps/dir/?api=1&origin=' + encodeURIComponent(a.n) + '&destination=' + encodeURIComponent(b.n);
+};
+
+const visibleRouteGroups = view => {
+  const mapByView = {
+    all:['arrival','day1','day2','food','transfer','osaka_conan','return'],
+    arrival:['arrival'],
+    day1:['day1','food'],
+    day2:['day2'],
+    transfer:['transfer','osaka_conan'],
+    osaka_conan:['osaka_conan'],
+    return:['return'],
+    pikmin:['day1','day2'],
+    food:['food'],
+    hotels:['arrival','transfer','return']
+  };
+  return mapByView[view] || mapByView.all;
+};
+
+const popupHtml = p => `
+  <div>
+    <b>${p.num}. ${p.n}</b>
+    <div style="margin-top:4px;color:#6b7280">${p.a}｜${D.labels[p.p]}</div>
+    <div style="margin-top:8px;line-height:1.6">${p.m}</div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <a class="mini" href="${gm(p)}" target="_blank" rel="noopener">Google Maps</a>
+      <a class="mini" href="${osm(p)}" target="_blank" rel="noopener">OpenStreetMap</a>
+    </div>
+  </div>`;
+
+D.points.forEach((p, i) => {
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="marker ${p.p}">${i + 1}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14]
+  });
+  const marker = L.marker([p.lat, p.lng], { icon }).addTo(map).bindPopup(popupHtml({ ...p, num: i + 1 }));
+  marker._view = p.v || [];
+  marker.on('click', () => document.getElementById('c_' + p.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  markers.push(marker);
+});
+
+D.routes.forEach(r => {
+  const a = byId[r.f], b = byId[r.t];
+  const line = L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
+    color: ROUTE_COLOR[r.g] || '#94a3b8',
+    weight: ['food', 'return'].includes(r.g) ? 3 : 4,
+    opacity: .82,
+    dashArray: ['food', 'return'].includes(r.g) ? '6,8' : null
+  }).addTo(map);
+  line._group = r.g;
+  lines.push(line);
+});
+
+map.fitBounds(L.featureGroup(markers).getBounds().pad(.12));
+
+const filters = document.getElementById('filters');
+D.views.forEach(([key, label], idx) => {
+  const b = document.createElement('button');
+  b.className = 'fbtn' + (idx === 0 ? ' active' : '');
+  b.textContent = label;
+  b.dataset.view = key;
+  b.onclick = () => applyFilter(key, b);
+  filters.appendChild(b);
+});
+
+const board = document.getElementById('board');
+D.itinerary.forEach(day => {
+  const el = document.createElement('article');
+  el.className = 'day-card';
+  el.innerHTML = `
+    <div class="day-top">
+      <div>
+        <div class="day-no">${day.day}</div>
+        <div class="day-date">${day.date}</div>
+      </div>
+      <span class="pace">${day.pace}</span>
+    </div>
+    <div class="day-theme">${day.title}</div>
+    <div class="day-base">${day.base}</div>
+    <div class="tag-row">
+      ${day.tags.map(([kind, text]) => `<span class="tag ${kind}">${text}</span>`).join('')}
+    </div>
+    <div class="quick-list">
+      ${day.focus.map(([title, desc]) => `<div class="quick-item"><b>${title}</b><span>${desc}</span></div>`).join('')}
+    </div>
+    <div class="mini-row">
+      <button class="jump-btn" data-view="${day.jump}">看這天地圖</button>
+    </div>`;
+  board.appendChild(el);
+});
+
+const routeList = document.getElementById('routeList');
+D.routes.forEach(r => {
+  const a = byId[r.f], b = byId[r.t];
+  const el = document.createElement('div');
+  el.className = 'routeItem';
+  el.dataset.group = r.g;
+  el.innerHTML = `
+    <b>${a.n} → ${b.n}</b>
+    <div class="muted">${r.m}｜${r.tm}</div>
+    <div class="actions"><a class="mini" href="${routeDir(r)}" target="_blank" rel="noopener">Google 路線</a></div>`;
+  routeList.appendChild(el);
+});
+
+const cards = document.getElementById('cards');
+D.points.forEach((p, i) => {
+  const el = document.createElement('article');
+  el.className = 'card';
+  el.id = 'c_' + p.id;
+  el.dataset.views = (p.v || []).join(' ');
+  el.innerHTML = `
+    <div class="head">
+      <div class="num ${p.p}">${i + 1}</div>
+      <div>
+        <h3>${p.n}</h3>
+        <div class="meta">${p.a}｜${D.labels[p.p]}｜建議停留：${p.s}</div>
+      </div>
+    </div>
+    <div class="sum">${p.m}</div>
+    <div class="actions">
+      <a class="mini" href="${gm(p)}" target="_blank" rel="noopener">Google Maps</a>
+      <a class="mini" href="${osm(p)}" target="_blank" rel="noopener">OpenStreetMap</a>
+      ${p.ref ? `<a class="mini" href="${p.ref}" target="_blank" rel="noopener">場景來源</a>` : ''}
+    </div>`;
+  cards.appendChild(el);
+});
+
+function setBoardActive(view) {
+  document.querySelectorAll('.jump-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === view);
+  });
+}
+
+function applyFilter(view, btnEl = null) {
+  document.querySelectorAll('.fbtn').forEach(x => x.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+
+  const allowedRoutes = visibleRouteGroups(view);
+
+  markers.forEach(m => {
+    const show = view === 'all' || (m._view || []).includes(view);
+    if (show) { if (!map.hasLayer(m)) m.addTo(map); }
+    else { if (map.hasLayer(m)) map.removeLayer(m); }
+  });
+
+  lines.forEach(l => {
+    const show = allowedRoutes.includes(l._group);
+    if (show) { if (!map.hasLayer(l)) l.addTo(map); }
+    else { if (map.hasLayer(l)) map.removeLayer(l); }
+  });
+
+  document.querySelectorAll('.card').forEach(c => {
+    const show = view === 'all' || c.dataset.views.split(' ').includes(view);
+    c.classList.toggle('hidden', !show);
+  });
+
+  document.querySelectorAll('.routeItem').forEach(r => {
+    r.classList.toggle('hidden', !allowedRoutes.includes(r.dataset.group));
+  });
+
+  setBoardActive(view);
+}
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.jump-btn');
+  if (!btn) return;
+  const view = btn.dataset.view;
+  const filterBtn = document.querySelector(`.fbtn[data-view="${view}"]`);
+  applyFilter(view, filterBtn);
+  document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+applyFilter('all', document.querySelector('.fbtn'));
