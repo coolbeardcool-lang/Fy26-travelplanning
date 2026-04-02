@@ -3,111 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>FY26 關西員旅分享地圖</title>
+  <title>FY26 關西員旅互動看板</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <div class="wrap">
-    <section class="hero">
+    <header class="hero">
       <div class="eyebrow">FY26 Travel Planning</div>
-      <h1>關西員旅圖卡看板</h1>
-      <p class="sub">
-        把整段旅程拆成「出發日 → 京都主線 A → 京都主線 B → 換宿大阪 → 回國日」五張圖卡。
-        先看板，再看地圖與各景點細節，會比直接看全部點位更直觀。
-      </p>
-      <div class="chips">
-        <span class="chip">2026/4/17–4/21</span>
-        <span class="chip">京都 2 晚＋大阪 2 晚</span>
-        <span class="chip">Pikmin 為主</span>
-        <span class="chip">動漫／文學為輔</span>
-        <span class="chip">GitHub Pages 分享版</span>
-      </div>
-      <div class="notice">
-        建議閱讀順序：<b>先看「五天圖卡看板」</b> → 再看對應的地圖篩選 → 最後點各景點卡打開 Google Maps / OpenStreetMap。
-      </div>
-      <div class="filters" id="filters"></div>
-    </section>
-
-    <section class="panel board-panel">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow">Trip Board</div>
-          <h2>五天圖卡看板</h2>
-        </div>
-        <div class="small">每張卡都對應一段旅程節奏與主題，可直接切換下面的地圖篩選。</div>
-      </div>
-      <div class="board" id="board"></div>
-    </section>
-
-    <section class="grid">
-      <div class="panel">
-        <div class="section-head">
-          <div>
-            <div class="eyebrow">OpenStreetMap</div>
-            <h2>互動地圖</h2>
-          </div>
-          <div class="small">可拖曳、縮放、點 marker 看摘要。</div>
-        </div>
-        <div id="map"></div>
-        <div class="legend">
-          <span><i class="dot pikmin"></i>Pikmin</span>
-          <span><i class="dot jjk"></i>咒術迴戰</span>
-          <span><i class="dot conan"></i>名偵探柯南</span>
-          <span><i class="dot literary"></i>文學／自然</span>
-          <span><i class="dot food"></i>餐廳／小吃</span>
-          <span><i class="dot hotel"></i>飯店</span>
-        </div>
-      </div>
-      <div class="panel side">
-        <div class="section-head">
-          <div>
-            <div class="eyebrow">How to read</div>
-            <h2>怎麼用這份頁面</h2>
-          </div>
-        </div>
-        <div class="stack">
-          <div class="info-card">
-            <b>先看圖卡</b>
-            <p>圖卡直接告訴你每天的基地、節奏、重點區域與吃飯方向，適合拿來做團體溝通。</p>
-          </div>
-          <div class="info-card">
-            <b>再看地圖</b>
-            <p>點上方篩選切換到某一天，地圖與下方景點卡會同步只留下當天較相關的內容。</p>
-          </div>
-          <div class="info-card">
-            <b>最後開導航</b>
-            <p>每個景點卡都可直接打開 Google Maps / OpenStreetMap；路徑區塊也有 Google 路線可點。</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel routes">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow">Transit</div>
-          <h2>段落移動與時間估計</h2>
-        </div>
-        <div class="small">這是規劃估時，實際請以當天導航為準。</div>
-      </div>
-      <div id="routeList" class="routeList"></div>
-    </section>
-
-    <section class="panel card-panel">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow">Spot cards</div>
-          <h2>景點／飯店／餐飲圖卡</h2>
-        </div>
-        <div class="small">點地圖 marker 也會自動捲到對應景點卡。</div>
-      </div>
-      <section class="cards" id="cards"></section>
-    </section>
+      <h1>關西員旅互動看板</h1>
+      <p class="sub">住宿已依你的實際安排重排：<b>4/17、4/18 住京都；4/19、4/20 住大阪</b>。這版新增：景點勾選、Emoji 地圖圖示、每日分頁、同日景點拖曳排序。</p>
+      <div class="chips"><span class="chip">4/17–4/21</span><span class="chip">京都兩晚 → 大阪兩晚</span><span class="chip">Pikmin 為主</span><span class="chip">動漫 / 文學為輔</span><span class="chip">可分享 GitHub Pages</span></div>
+      <div class="notice">使用方式：先切換上方 <b>每日分頁</b>，右側勾選要顯示 / 要納入行程的景點；行程卡片可直接 <b>拖曳排序</b>。固定交通段不會被移動。</div>
+    </header>
+    <section class="panel day-tabs-panel"><div class="section-head"><div><div class="eyebrow">Day tabs</div><h2>每日分頁</h2></div><div class="small">每個分頁都會同步切換地圖、右側景點清單、路線與行程圖卡。</div></div><div id="dayTabs" class="day-tabs"></div></section>
+    <section class="grid map-grid"><div class="panel"><div class="section-head"><div><div class="eyebrow">Map</div><h2>OpenStreetMap</h2></div><div class="small">地圖圖示以景點性質的 emoji 顯示。</div></div><div id="map"></div><div class="legend"><span><i class="dot hotel"></i>飯店 / 機場 / 車站</span><span><i class="dot pikmin"></i>Pikmin</span><span><i class="dot anime"></i>動漫</span><span><i class="dot literary"></i>文學 / 自然</span><span><i class="dot food"></i>餐廳 / 小吃</span></div></div><aside class="panel sidebar"><div class="section-head"><div><div class="eyebrow">Spot selector</div><h2>景點清單</h2></div><div class="small">勾選「顯示」控制地圖；勾選「納入」控制是否放進當日行程。</div></div><div class="side-actions"><button class="mini-btn" id="showAllBtn">全部顯示</button><button class="mini-btn" id="includeCoreBtn">恢復推薦</button></div><div class="spot-list-head"><span>景點</span><span>顯示</span><span>納入</span></div><div id="spotList" class="spot-list"></div></aside></section>
+    <section class="panel itinerary-panel"><div class="section-head"><div><div class="eyebrow">Itinerary board</div><h2>當日行程圖卡</h2></div><div class="small">拖曳可調整順序；固定交通段不可移動。</div></div><div id="itineraryBoard" class="itinerary-board"></div></section>
+    <section class="panel routes-panel"><div class="section-head"><div><div class="eyebrow">Transit</div><h2>當日段落移動估時</h2></div><div class="small">依目前排序自動重算段落順序；時間仍屬規劃估值。</div></div><div id="routeList" class="route-list"></div></section>
+    <section class="panel all-spots-panel"><div class="section-head"><div><div class="eyebrow">Reference</div><h2>景點／飯店／餐飲總覽</h2></div><div class="small">點地圖 marker 或點下方卡片都能快速打開導航。</div></div><div id="allSpotCards" class="all-spot-cards"></div></section>
   </div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="./data.js"></script>
-  <script src="./app.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="./data.js"></script><script src="./app.js"></script>
 </body>
 </html>
